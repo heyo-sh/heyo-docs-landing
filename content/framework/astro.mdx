@@ -15,7 +15,7 @@ the optional API request proxy separate from static content.
 Use the creator with the Astro template. Remove the flags if you would rather
 pick the template, deployment, theme, and package manager in the wizard.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock language="bash" title="Bun">
     {`bun create @heyo-sh/heyo-docs my-docs --template astro
 cd my-docs
@@ -56,7 +56,7 @@ server-side **Try it** proxy.
 This assumes that the existing project uses Astro with the React integration
 and Tailwind v4. Add the missing packages if it does not.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock language="bash" title="Bun">
     {`bun add @heyo-sh/heyo-docs @astrojs/react @fontsource-variable/figtree shadcn tw-animate-css
 bun add -d @tailwindcss/vite tailwindcss`}

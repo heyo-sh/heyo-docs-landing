@@ -71,7 +71,7 @@ script tag. This prevents page content from ending the script element.
 The React Router template configures root metadata in `app/root.tsx` and
 per-page metadata in `app/lib/seo.ts` with `app/routes/docs.tsx`.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock
     language="bash"
     title="Bun"
@@ -145,7 +145,7 @@ is a React Router meta descriptor that includes the `script:ld+json` entry.
 The Next.js template uses the Metadata API for standard tags and injects the
 structured-data array from `app/lib/seo.ts` on each static docs page.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock
     language="bash"
     title="Bun"
@@ -216,7 +216,7 @@ metadata, including `metadataBase` when `siteUrl` is configured.
 The Astro template calls `docsSeo()` for every emitted page and passes its
 result to `DocsLayout`.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock
     language="bash"
     title="Bun"

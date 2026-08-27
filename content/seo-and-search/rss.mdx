@@ -81,7 +81,7 @@ The React Router template includes `/rss.xml`, adds it to `prerender()`, and
 places the discovery link in the root document whenever a changelog group is
 configured.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock
     language="bash"
     title="Bun"
@@ -150,7 +150,7 @@ export const links = () =>
 The Next.js template adds an App Router Route Handler and declares the feed as
 an alternate type in root metadata when a changelog exists.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock
     language="bash"
     title="Bun"
@@ -197,7 +197,7 @@ For discovery, set `alternates.types["application/rss+xml"]` to
 The Astro template includes a static `src/pages/rss.xml.ts` API route and an
 RSS alternate link in `DocsLayout` when the configuration has a changelog.
 
-<CodeBlockGroup defaultValue="pnpm" variant="line">
+<CodeBlockGroup defaultValue="bun" variant="line">
   <CodeBlock
     language="bash"
     title="Bun"

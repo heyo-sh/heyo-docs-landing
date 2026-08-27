@@ -99,8 +99,8 @@ export default function HomeRoute() {
         </Marker>
 
         <div className="landing-enter landing-enter--8 w-full max-w-md text-left mb-10">
-          <CodeBlockGroup className="my-0" defaultValue="pnpm" variant="line">
-            <CodeBlock language="bash" title="Bun">
+          <CodeBlockGroup className="my-0" defaultValue="bun" variant="line">
+            <CodeBlock language="bash" title="bun">
               {`bun create @heyo-sh/heyo-docs`}
             </CodeBlock>
             <CodeBlock language="bash" title="npm">
