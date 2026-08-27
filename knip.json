@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/root.tsx",
+    "app/routes.ts",
+    "app/routes/**/*.{ts,tsx}",
+    "app/entry.server.tsx",
+    "vite.config.ts",
+    "react-router.config.ts"
+  ],
+  "project": ["app/**/*.{ts,tsx,css,mdx}", "workers/**/*.ts", "*.ts"],
+  "ignoreFiles": ["app/components/ui/badge.tsx"],
+  "ignoreDependencies": ["shadcn", "tailwindcss", "tw-animate-css"],
+  "react-router": false,
+  "vite": false
+}

@@ -1,0 +1,236 @@
+---
+title: RSS
+description: Publish an RSS 2.0 feed from changelog updates in your documentation.
+---
+
+# RSS
+
+<Callout type="info" title="Included in starter templates">
+  This functionality is already configured in the starter templates. Follow the
+  complete setup in the [Quickstart](/quickstart).
+</Callout>
+
+Heyo Docs publishes an RSS 2.0 feed at `/rss.xml` for changelog updates. It
+reads the same MDX `<Update>` entries that power the changelog UI, so feed
+items, tags, descriptions, and anchors stay in sync with the rendered page.
+
+Only pages selected by a changelog group are included. Ordinary documentation
+pages are deliberately excluded from the feed.
+
+## Define changelog updates
+
+Configure a group with `type: "changelog"` and point `updates` at the MDX
+pages that contain the entries:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  siteUrl: "https://docs.example.com",
+  groups: [
+    {
+      group: "Changelog",
+      type: "changelog",
+      updates: ["changelog"],
+    },
+  ],
+  // ...the rest of the configuration
+});
+```
+
+Each `<Update>` needs a label. `tags` and the ISO 8601 `date` are optional,
+but a date allows the feed to emit an RSS `pubDate`.
+
+```mdx title="content/changelog.mdx"
+---
+title: Changelog
+---
+
+# Changelog
+
+<Update
+  label="Version 2.4"
+  date="2026-08-24"
+  tags={["New releases", "Search"]}
+>
+
+## Faster documentation search
+
+Improved result ranking for API operations.
+
+</Update>
+```
+
+The feed creates an item URL from the documentation URL and the update anchor,
+for example `https://docs.example.com/changelog#version-2-4`. It includes the
+plain-text update body as the description and turns each tag into an RSS
+`category`. Text is XML-escaped before it is returned.
+
+The document is served with:
+
+```text
+content-type: application/rss+xml; charset=utf-8
+```
+
+When a changelog group exists, the root layout also advertises the feed with a
+`rel="alternate"` link so browsers and feed readers can discover it.
+
+## React Router
+
+### Create a project
+
+The React Router template includes `/rss.xml`, adds it to `prerender()`, and
+places the discovery link in the root document whenever a changelog group is
+configured.
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template react-router`}</CodeBlock>
+</CodeBlockGroup>
+
+### Manual, minimal configuration
+
+Register the resource route before the documentation catch-all:
+
+```ts title="app/routes.ts"
+route("rss.xml", "routes/rss.ts"),
+route("*", "routes/docs.tsx"),
+```
+
+Generate the feed from the server-side virtual MDX registry:
+
+```ts title="app/routes/rss.ts"
+import { rssXml } from "@heyo-sh/heyo-docs";
+import type { LoaderFunctionArgs } from "react-router";
+
+import config from "../../heyo-docs.config";
+import { pages } from "virtual:heyo-docs-content/server";
+
+export function loader({ request }: LoaderFunctionArgs) {
+  const siteUrl = config.siteUrl ?? new URL(request.url).origin;
+  return new Response(rssXml(pages, config, siteUrl), {
+    headers: { "content-type": "application/rss+xml; charset=utf-8" },
+  });
+}
+```
+
+Include `/rss.xml` in the `prerender()` result for static deployments. Add the
+discovery link conditionally in `app/root.tsx`:
+
+```ts
+export const links = () =>
+  config.groups.some((group) => group.type === "changelog")
+    ? [
+        {
+          rel: "alternate",
+          href: "/rss.xml",
+          type: "application/rss+xml",
+          title: `${config.title} updates`,
+        },
+      ]
+    : [];
+```
+
+## Next.js
+
+### Create a project
+
+The Next.js template adds an App Router Route Handler and declares the feed as
+an alternate type in root metadata when a changelog exists.
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template next`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template next`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template next`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template next`}</CodeBlock>
+</CodeBlockGroup>
+
+### Manual, minimal configuration
+
+After generating and exporting `config` and `markdownPages` from the server-
+only docs helper, add the route:
+
+```ts title="app/rss.xml/route.ts"
+import { rssXml } from "@heyo-sh/heyo-docs/node";
+
+import { config, markdownPages } from "../lib/docs";
+
+export function GET(request: Request) {
+  const siteUrl = config.siteUrl ?? new URL(request.url).origin;
+  return new Response(rssXml(markdownPages, config, siteUrl), {
+    headers: { "content-type": "application/rss+xml; charset=utf-8" },
+  });
+}
+```
+
+For discovery, set `alternates.types["application/rss+xml"]` to
+`"/rss.xml"` in the root `Metadata` only when a changelog group is present.
+
+## Astro
+
+### Create a project
+
+The Astro template includes a static `src/pages/rss.xml.ts` API route and an
+RSS alternate link in `DocsLayout` when the configuration has a changelog.
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template astro`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template astro`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template astro`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template astro`}</CodeBlock>
+</CodeBlockGroup>
+
+### Manual, minimal configuration
+
+Create the root API route and generate the feed from the server page registry:
+
+```ts title="src/pages/rss.xml.ts"
+import type { APIRoute } from "astro";
+import { rssXml } from "@heyo-sh/heyo-docs";
+
+import config from "../../heyo-docs.config";
+import { pages } from "virtual:heyo-docs-content/server";
+
+export const GET: APIRoute = ({ request }) => {
+  const siteUrl = config.siteUrl ?? new URL(request.url).origin;
+  return new Response(rssXml(pages, config, siteUrl), {
+    headers: { "content-type": "application/rss+xml; charset=utf-8" },
+  });
+};
+```

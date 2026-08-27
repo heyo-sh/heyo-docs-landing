@@ -1,0 +1,104 @@
+---
+title: Fonts
+description: Change the project-level font import and --heyo-docs-font-family token used by the Grain theme.
+---
+
+# Fonts
+
+Fonts are selected by the application, not by `heyo-docs.config.ts`. This keeps
+font files statically imported and lets the chosen framework bundle only the
+family the documentation actually uses.
+
+The supplied projects use Figtree Variable and expose it to Grain through the
+`--heyo-docs-font-family` CSS custom property.
+
+## Find the application stylesheet
+
+| Framework    | Stylesheet           |
+| ------------ | -------------------- |
+| React Router | `app/app.css`        |
+| Next.js      | `app/app.css`        |
+| Astro        | `src/styles/app.css` |
+
+Each generated file imports a Fontsource package first, then the Heyo Docs
+theme:
+
+```css
+@import "@fontsource-variable/figtree";
+@import "@heyo-sh/heyo-docs/theme/grain.css";
+
+:root {
+  --heyo-docs-font-family: "Figtree Variable", sans-serif;
+}
+```
+
+Grain maps that variable to its sans and heading font tokens. It is also used
+by Mermaid diagrams, so a single change keeps prose, controls, and diagrams
+visually consistent.
+
+## Replace the family
+
+Install a local variable font package, update the CSS import, and set the
+matching family name:
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock language="bash" title="Bun">
+    {"bun add @fontsource-variable/manrope"}
+  </CodeBlock>
+  <CodeBlock language="bash" title="npm">
+    {"npm install @fontsource-variable/manrope"}
+  </CodeBlock>
+  <CodeBlock language="bash" title="pnpm">
+    {"pnpm add @fontsource-variable/manrope"}
+  </CodeBlock>
+  <CodeBlock language="bash" title="Yarn">
+    {"yarn add @fontsource-variable/manrope"}
+  </CodeBlock>
+</CodeBlockGroup>
+
+```css title="app/app.css"
+@import "@fontsource-variable/manrope";
+@import "@heyo-sh/heyo-docs/theme/grain.css";
+
+:root {
+  --heyo-docs-font-family: "Manrope Variable", ui-sans-serif, sans-serif;
+}
+```
+
+Use the family name published by the package. Keep the system fallbacks so the
+site remains readable if a font request is delayed or a browser blocks a
+resource.
+
+The project must also remove the old font import and dependency when Figtree
+is no longer used. That avoids shipping two families merely because the
+starter stylesheet was left unchanged.
+
+## Keep the theme import first
+
+Place the font import and theme import before project overrides. The theme
+defines `--font-sans` in terms of `--heyo-docs-font-family`; setting the custom
+property after that import is the intended override point.
+
+Do not replace the font variable with a selector that targets only article
+text. Navigation, buttons, search, dialogs, code-adjacent labels, and
+diagrams would then use a different family. Use a narrower selector only for
+a deliberate editorial exception.
+
+## Separate body and code fonts when needed
+
+The code blocks in Grain use a built-in monospace system font stack
+independently of `--heyo-docs-font-family`. This preserves source-code
+alignment even when the documentation uses a display-oriented body family.
+
+If a project needs a custom code font, override the code-block font rule in
+the application stylesheet and check wrapping, line numbers, copy controls,
+and both color modes. A monospaced family with clear punctuation and
+distinguishable characters is more important than matching the body font.
+
+## Verify the final asset
+
+Run a production build and inspect an article with headings, a table, a
+Mermaid diagram, and code. Confirm the requested font loads, the fallback
+stack remains acceptable, and the selected weights are available. Font
+configuration is a build-time asset decision, so test the deployed output as
+well as the development server.

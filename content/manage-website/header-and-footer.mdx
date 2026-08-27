@@ -1,0 +1,96 @@
+---
+title: Header and Footer
+description: Add custom top-navigation content and optional website or GitHub links to the Grain sidebar footer.
+---
+
+# Header and Footer
+
+Grain keeps global actions deliberately compact. The header always contains
+the linked brand mark and, on larger screens, the breadcrumb. The sidebar
+footer can show website and GitHub links plus the color-mode toggle.
+
+## Add custom navigation content
+
+Use `navigation` to provide the JSX that belongs in the theme's navigation
+slot. Keep the element in an application component so the configuration file
+can stay a regular TypeScript file:
+
+```tsx title="app/header-navigation.tsx"
+export const headerNavigation = (
+  <a
+    className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+    href="https://app.acme.com/sign-in"
+  >
+    Sign in
+  </a>
+);
+```
+
+Then pass that element to Heyo Docs:
+
+```ts title="heyo-docs.config.ts"
+import { headerNavigation } from "./app/header-navigation";
+
+export default heyoDocs({
+  content: "content",
+  navigation: headerNavigation,
+});
+```
+
+The JSX can contain one link, several actions, a user menu, or a project-owned
+component. Each theme decides where to place it. Grain renders it on the right
+side of the top navigation, in the area formerly reserved for header buttons.
+The element owns its own links, icons, target behavior, and styling.
+
+## Keep navigation concise
+
+The header has limited room on narrow screens. Favor one or two high-value
+controls with short labels, such as `Sign in`, `Start free`, or `View on
+GitHub`. Long labels can crowd the brand and are especially noticeable when a
+reader opens the mobile navigation sheet. Use responsive styles inside your
+element when some controls should be hidden on small screens.
+
+Do not use the header slot for every useful destination. Documentation pages
+belong in sidebar navigation, while a status page or legal page can be a
+custom sidebar link.
+
+## Configure footer links
+
+The sidebar footer supports one website link and one GitHub link:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  footer: {
+    website: "https://acme.com",
+    github: "https://github.com/acme/docs",
+  },
+});
+```
+
+Both values must be absolute URLs. When set, Grain renders recognizable globe
+and GitHub icon buttons that open in a new tab with `rel="noreferrer"`. The
+color-mode button remains aligned at the other edge of the footer.
+
+Omit either property to remove just that link. With an empty `footer` object,
+the theme retains only the color-mode control when a theme toggle is supplied
+by the framework shell.
+
+## Understand the fixed shell
+
+The current Grain layout does not expose configuration slots for arbitrary
+footer copy, legal links, newsletter forms, or additional icon links. Those
+are project-level theme customizations. Use `navigation` for header content
+and the two footer URLs for sidebar links; change the Grain layout components
+only when the information architecture genuinely requires a different shell.
+
+Branding is configured separately through `branding.name` and
+`branding.logo`. It owns the left-side header mark and links to the site root.
+
+## Verify links and keyboard access
+
+After a change, test every action with a keyboard as well as a pointer. Check
+that the label makes sense without its icon, external URLs are correct, focus
+is visible in both color modes, and the header remains usable at mobile width.
+Header and footer URLs are public build configuration, so never put secrets or
+single-use tokens in them.

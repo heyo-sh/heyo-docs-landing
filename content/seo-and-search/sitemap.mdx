@@ -1,0 +1,205 @@
+---
+title: Sitemap
+description: Generate an XML sitemap from MDX pages and OpenAPI endpoint routes.
+---
+
+# Sitemap
+
+<Callout type="info" title="Included in starter templates">
+  This functionality is already configured in the starter templates. Follow the
+  complete setup in the [Quickstart](/quickstart).
+</Callout>
+
+Heyo Docs generates `/sitemap.xml` from the same documentation model that
+renders navigation and pages. It includes every MDX page and every generated
+OpenAPI endpoint route, so the sitemap stays aligned with the site after a
+content or schema change.
+
+The response is an XML sitemap with one absolute `<loc>` entry per route:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://docs.example.com/getting-started</loc></url>
+  <url><loc>https://docs.example.com/api/widgets/list-widgets</loc></url>
+</urlset>
+```
+
+Set `siteUrl` in `heyo-docs.config.ts` so production URLs are deterministic.
+Without it, the route uses the current request origin, which is useful for a
+preview but should not replace a canonical production URL.
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  siteUrl: "https://docs.example.com",
+  // ...the rest of the configuration
+});
+```
+
+`sitemapXml()` escapes generated XML and accepts a base URL plus an array of
+paths. It deliberately publishes URLs only; it does not infer `lastmod`,
+priority, or change frequency.
+
+## React Router
+
+### Create a project
+
+The React Router template registers `/sitemap.xml` and adds it to its static
+prerender list.
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template react-router`}</CodeBlock>
+</CodeBlockGroup>
+
+### Manual, minimal configuration
+
+Register the route ahead of the documentation catch-all:
+
+```ts title="app/routes.ts"
+route("sitemap.xml", "routes/sitemap.ts"),
+route("*", "routes/docs.tsx"),
+```
+
+Build the model with the compiled MDX page registry and OpenAPI documents,
+then serialise both sets of routes:
+
+```ts title="app/routes/sitemap.ts"
+import { createDocsModel, sitemapXml } from "@heyo-sh/heyo-docs";
+import type { LoaderFunctionArgs } from "react-router";
+
+import config from "../../heyo-docs.config";
+import { pages } from "virtual:heyo-docs-content";
+import { openApiDocuments } from "virtual:heyo-docs-openapi";
+
+export function loader({ request }: LoaderFunctionArgs) {
+  const model = createDocsModel(config, pages, openApiDocuments);
+  const siteUrl = config.siteUrl ?? new URL(request.url).origin;
+
+  return new Response(
+    sitemapXml(
+      siteUrl,
+      [...model.pages, ...model.endpoints].map((page) => page.slug),
+    ),
+    { headers: { "content-type": "application/xml; charset=utf-8" } },
+  );
+}
+```
+
+Add `/sitemap.xml` to `prerender()` when deploying the React Router app as
+static files.
+
+## Next.js
+
+### Create a project
+
+The Next.js template generates the docs model before development and builds,
+then exposes this Route Handler automatically.
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template next`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template next`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template next`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template next`}</CodeBlock>
+</CodeBlockGroup>
+
+### Manual, minimal configuration
+
+First configure the server-only docs helper to export `config` and `docsModel`.
+Then add the handler:
+
+```ts title="app/sitemap.xml/route.ts"
+import { sitemapXml } from "@heyo-sh/heyo-docs/node";
+
+import { config, docsModel } from "../lib/docs";
+
+export function GET(request: Request) {
+  const siteUrl = config.siteUrl ?? new URL(request.url).origin;
+
+  return new Response(
+    sitemapXml(
+      siteUrl,
+      [...docsModel.pages, ...docsModel.endpoints].map((page) => page.slug),
+    ),
+    { headers: { "content-type": "application/xml; charset=utf-8" } },
+  );
+}
+```
+
+## Astro
+
+### Create a project
+
+The Astro template includes the static API route at
+`src/pages/sitemap.xml.ts`.
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template astro`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template astro`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template astro`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template astro`}</CodeBlock>
+</CodeBlockGroup>
+
+### Manual, minimal configuration
+
+Build the model from Astro's virtual registries and return its URLs:
+
+```ts title="src/pages/sitemap.xml.ts"
+import type { APIRoute } from "astro";
+import { createDocsModel, sitemapXml } from "@heyo-sh/heyo-docs";
+
+import config from "../../heyo-docs.config";
+import { openApiDocuments } from "virtual:heyo-docs-openapi";
+import { pages } from "virtual:heyo-docs-content";
+
+export const GET: APIRoute = ({ request }) => {
+  const model = createDocsModel(config, pages, openApiDocuments);
+  const siteUrl = config.siteUrl ?? new URL(request.url).origin;
+
+  return new Response(
+    sitemapXml(
+      siteUrl,
+      [...model.pages, ...model.endpoints].map((page) => page.slug),
+    ),
+    { headers: { "content-type": "application/xml; charset=utf-8" } },
+  );
+};
+```

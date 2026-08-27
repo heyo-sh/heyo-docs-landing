@@ -1,0 +1,133 @@
+---
+title: Search
+description: Add fast, local documentation search without operating a search service.
+---
+
+# Search
+
+<Callout type="info" title="Included in starter templates">
+  This functionality is already configured in the starter templates. Follow the
+  complete setup in the [Quickstart](/quickstart).
+</Callout>
+
+Heyo Docs includes a local search interface in the built-in Grain theme. It
+builds its index in the browser from the documentation model already passed to
+`DocsApp`, so there is no hosted search provider, API key, crawler, or search
+endpoint to configure.
+
+The search dialog opens from the sidebar or top navigation. Users can also
+press <kbd>⌘ K</kbd> on macOS or <kbd>Ctrl K</kbd> elsewhere, navigate with the
+arrow keys, and open the selected page with <kbd>Enter</kbd>.
+
+## What is indexed
+
+Every MDX page contributes its title, frontmatter description, table-of-
+contents headings, and plain-text body. The build step removes frontmatter,
+code blocks, images, links, and MDX tags from the body before sending it to the
+browser index.
+
+Generated OpenAPI reference pages are indexed too. Their title, description,
+HTTP method, path, operation ID, tags, and parameter names are searchable.
+The full OpenAPI document is not included merely to support search.
+
+The built-in index uses ZBSearch. It returns at most eight results, gives title
+matches more weight than descriptions and body text, and tolerates a small
+amount of typo variation. The index is local to the current browser session;
+queries are not sent to a Heyo Docs server.
+
+## Start with a template
+
+Projects generated for React Router, Next.js, and Astro already render the
+search UI through `DocsApp`. Add useful titles, descriptions, and headings to
+your MDX content, then run the app:
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock
+    language="bash"
+    title="Bun"
+  >{`bun create @heyo-sh/heyo-docs my-docs --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="npm"
+  >{`npm create @heyo-sh/heyo-docs@latest my-docs -- --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="pnpm"
+  >{`pnpm create @heyo-sh/heyo-docs my-docs --template react-router`}</CodeBlock>
+  <CodeBlock
+    language="bash"
+    title="Yarn"
+  >{`yarn dlx @heyo-sh/create-heyo-docs my-docs --template react-router`}</CodeBlock>
+</CodeBlockGroup>
+
+No extra search configuration is required. The included Grain theme supplies
+the `Search` component and `DocsApp` supplies the MDX and OpenAPI records that
+it indexes.
+
+## Searchable content
+
+Use frontmatter and descriptive headings to make the result list useful. The
+description is both an SEO field and the preferred excerpt shown by the search
+dialog.
+
+```mdx
+---
+title: Configure webhooks
+description: Verify signed webhook deliveries from the API.
+---
+
+# Configure webhooks
+
+## Verify the signature
+
+Use the signing secret to validate every incoming request.
+```
+
+Avoid treating the in-browser index as an access-control boundary. A page that
+is supplied to `DocsApp` is available to people who can load the documentation
+application.
+
+## Use the search primitives
+
+The search engine is exported independently of the UI. This is useful when a
+custom theme needs a different interaction model while retaining the same
+matching, ranking, and result limit.
+
+```ts
+import {
+  createSearchIndex,
+  findSearchPages,
+  type SearchDocument,
+} from "@heyo-sh/heyo-docs";
+
+const pages: SearchDocument[] = [
+  {
+    slug: "/webhooks",
+    title: "Configure webhooks",
+    description: "Verify signed webhook deliveries from the API.",
+    tableOfContents: [
+      { id: "verify-the-signature", title: "Verify the signature", depth: 2 },
+    ],
+    searchContent: "Use the signing secret to validate every incoming request.",
+  },
+];
+
+const index = createSearchIndex(pages);
+const results = findSearchPages(index, "webhook signature");
+```
+
+Call `createSearchIndex()` once for a stable set of pages, then use
+`findSearchPages()` for each query. `searchPages(pages, query)` is available
+when retaining the index is unnecessary.
+
+## Custom themes
+
+Search is a theme capability, not a separate application route. `DocsApp`
+checks whether the active theme provides a `Search` component and supplies it
+with the complete set of searchable MDX and OpenAPI records. A theme can omit
+that component to hide search, or provide its own component that receives the
+same `SearchDocument[]` data.
+
+The default dialog also handles focus, accessible listbox semantics, result
+highlighting, and keyboard selection. Reuse it when those interactions suit
+the design; use the exported primitives when they do not.

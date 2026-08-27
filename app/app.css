@@ -1,0 +1,75 @@
+@import "@fontsource-variable/figtree";
+@import "@heyo-sh/heyo-docs/theme/grain.css";
+
+:root {
+  --heyo-docs-font-family: "Figtree Variable", sans-serif;
+}
+
+/* Add project-specific token overrides and theme styles below this import. */
+@media (min-width: 1024px) {
+  header > a[aria-label="Heyo Docs"] > img[src="/logo.svg"] {
+    height: 32px;
+    max-height: none;
+    width: auto;
+  }
+}
+
+.dark header > a[aria-label="Heyo Docs"] > img[src="/logo.svg"] {
+  filter: invert(1);
+}
+
+@keyframes landing-enter {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.landing-enter {
+  animation: landing-enter 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, filter, transform;
+}
+
+.landing-enter--1 {
+  animation-delay: 60ms;
+}
+.landing-enter--2 {
+  animation-delay: 120ms;
+}
+.landing-enter--3 {
+  animation-delay: 180ms;
+}
+.landing-enter--4 {
+  animation-delay: 260ms;
+}
+.landing-enter--5 {
+  animation-delay: 340ms;
+}
+.landing-enter--6 {
+  animation-delay: 430ms;
+}
+.landing-enter--7 {
+  animation-delay: 520ms;
+}
+.landing-enter--8 {
+  animation-delay: 610ms;
+}
+.landing-enter--9 {
+  animation-delay: 700ms;
+}
+.landing-enter--10 {
+  animation-delay: 780ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-enter {
+    animation: none;
+  }
+}

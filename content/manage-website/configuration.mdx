@@ -1,0 +1,120 @@
+---
+title: Configuration
+description: Define the documentation model, visual defaults, links, and canonical site URL in one validated configuration file.
+---
+
+# Configuration
+
+Heyo Docs reads the site model from `heyo-docs.config.ts` in the application
+root. The framework integration, the documentation UI, and the build use the
+same validated object, so navigation, metadata, generated routes, and the
+theme do not need separate configuration.
+
+The current `heyo-landing` example keeps that file beside `package.json` and
+points it at the local `content` directory.
+
+## Start with the site model
+
+`content` is the only required setting. The remaining settings have useful
+defaults, but defining the site identity and first navigation group makes a
+new project easier to recognise immediately.
+
+```ts title="heyo-docs.config.ts"
+import { heyoDocs } from "@heyo-sh/heyo-docs";
+
+export default heyoDocs({
+  title: "Acme Docs",
+  description: "Guides and API reference for Acme.",
+  content: "content",
+  theme: "grain",
+  mode: "system",
+  siteUrl: "https://docs.acme.com",
+  branding: {
+    name: "Acme",
+    logo: "/logo.svg",
+  },
+  groups: [
+    {
+      group: "Documentation",
+      icon: "globe",
+      sections: [
+        {
+          section: "Get started",
+          pages: ["index", "getting-started"],
+        },
+      ],
+    },
+  ],
+});
+```
+
+The function validates the configuration as the module is loaded. Misspelled
+properties and incorrectly shaped values fail early instead of being silently
+ignored. Keep this file as the single source of truth; do not create one
+configuration for Vite and another for the rendered application.
+
+## Top-level settings
+
+| Setting       | Purpose                                                                                             | Default                                          |
+| ------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `content`     | Directory containing MDX files and content-relative OpenAPI documents.                              | Required                                         |
+| `title`       | Default document title and site name used by metadata.                                              | `Heyo Documentation`                             |
+| `description` | Default site and page description when a page does not provide one.                                 | `Clear, focused documentation for your project.` |
+| `theme`       | Built-in visual theme. The current release provides `grain`.                                        | `grain`                                          |
+| `mode`        | Initial color preference: `system`, `light`, or `dark`.                                             | `system`                                         |
+| `colors`      | Optional `primary` and `secondary` CSS color overrides.                                             | `{}`                                             |
+| `navigation`  | Application-owned JSX placed by the active theme. Grain renders it at the right side of the header. | Omitted                                          |
+| `groups`      | Documentation and changelog groups in sidebar order.                                                | `[]`                                             |
+| `footer`      | Optional website and GitHub URLs for the sidebar footer.                                            | `{}`                                             |
+| `branding`    | Brand name and optional logo for the header.                                                        | Name falls back to `title`                       |
+| `siteUrl`     | Canonical public origin used for absolute generated URLs.                                           | Omitted                                          |
+
+The configuration is intentionally small. Content structure belongs in
+`groups`, while page-specific titles and descriptions belong in each MDX
+file's frontmatter.
+
+## Set the production URL
+
+Set `siteUrl` before a production release:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  siteUrl: "https://docs.acme.com",
+});
+```
+
+It must be an HTTP or HTTPS base URL without a query string or fragment. Heyo
+Docs removes one trailing slash, then uses the value for canonical links,
+social URLs, the sitemap, RSS, and AI-facing discovery files. Use the final
+custom domain rather than a preview URL from a hosting provider.
+
+An omitted `siteUrl` is convenient in local development, but generated
+absolute URLs then use the incoming request origin where a framework route can
+provide one. That is not a replacement for a stable production canonical URL.
+
+## Keep configuration and framework glue aligned
+
+The React Router example imports this configuration in `vite.config.ts`,
+`app/root.tsx`, and `app/routes/docs.tsx`. Generated Next.js and Astro
+projects follow the same pattern with their framework-specific integration.
+When changing `content`, `theme`, or an OpenAPI section, make sure every
+integration still receives the exported result of `heyoDocs(...)`.
+
+Do not mutate the object after it has been validated. Exporting a plain,
+stable object lets development reloads and production builds derive the same
+page model.
+
+## Verify a change
+
+Run the project checks after changing navigation or content paths:
+
+```bash
+bun run typecheck
+bun run build
+```
+
+The build resolves every configured MDX reference, validates the navigation
+tree, and generates the final public routes. A missing page or malformed
+configuration should be fixed in `heyo-docs.config.ts` rather than worked
+around in the rendered sidebar.

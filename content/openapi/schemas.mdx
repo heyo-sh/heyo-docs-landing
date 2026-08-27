@@ -1,0 +1,244 @@
+---
+title: Schemas
+description: Understand local references, examples, schema popovers, and the operation-level schema payloads emitted by Heyo Docs.
+---
+
+# Schemas
+
+Heyo Docs renders an OpenAPI schema where a developer needs it: beside a
+parameter, below a request body and below every documented response. It does
+not present one monolithic component registry. Instead, each generated
+operation retains the schema graph that it actually reaches, so the page is
+both navigable and suitable for large specifications.
+
+This article describes the schema subset used by the renderer, reference
+resolution, generated examples and the limits to account for when authoring a
+description.
+
+## Where schemas appear
+
+On an endpoint page, schema information is shown in three places:
+
+- Every path, query and header parameter shows its type and an expandable
+  property tree when it declares a schema.
+- A request body shows its content type, editable example and a property tree.
+- A response shows its status, description, example and a property tree.
+
+Object types and local schema references are interactive. Selecting an object
+type or a reference name opens a nested popover containing its properties. The
+popover can follow further local references and detects cycles, displaying a
+short notice instead of expanding a self-reference forever.
+
+Primitive types display type and, when present, format — for example, string
+and uuid. Arrays display their item type as array&lt;Planet&gt;. An object shows its
+title when available, otherwise object; an enum shows enum and its permitted
+JSON values.
+
+## Define reusable objects
+
+For OpenAPI 3.x, declare reusable types under components.schemas and refer to
+them with a local JSON Pointer. The Planet API fixture in this repository uses
+this pattern:
+
+```yaml
+components:
+  schemas:
+    Planet:
+      type: object
+      required: [id, name, classification]
+      properties:
+        id:
+          type: string
+          example: planet_earth
+        name:
+          type: string
+          example: Earth
+        classification:
+          type: string
+          enum: [terrestrial, gas-giant, ice-giant]
+    PlanetInput:
+      type: object
+      required: [name, classification]
+      properties:
+        name:
+          type: string
+          example: Mars
+        classification:
+          type: string
+          enum: [terrestrial, gas-giant, ice-giant]
+paths:
+  /organizations/{organizationId}/planets:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanetInput"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Planet"
+```
+
+Swagger 2 descriptions use the corresponding #/definitions/Planet form. Both
+components.schemas and definitions references are recognized in schema labels,
+schema popovers and generated endpoint assets.
+
+Local JSON Pointer escaping is supported: / in a component name is encoded as
+~1, and ~ as ~0. Heyo Docs decodes these names when showing a reference label.
+A local reference is resolved by merging the referenced object with any sibling
+fields on the reference; this permits a local override without losing the
+referenced definition.
+
+## The supported schema model
+
+The renderer preserves the raw schema but actively uses the following keywords
+to produce the reference UI and examples:
+
+| Purpose     | Keywords                         |
+| ----------- | -------------------------------- |
+| Basic shape | type, format, title, description |
+| Objects     | properties, required             |
+| Collections | items                            |
+| Values      | enum, const, default, example    |
+| Composition | allOf, oneOf, anyOf              |
+| References  | local $ref values under #/...    |
+
+An object is recognized from type: object or from the presence of properties,
+which makes compact OpenAPI schemas render naturally. Required is displayed per
+property. A property description is rendered as safe Markdown, so prose, lists,
+inline code and ordinary links are available inside the property view.
+
+The full specification is not an OpenAPI validator. Keywords outside this
+presentation subset remain data but are not guaranteed to receive a dedicated
+control or label. In particular, use a bundled document for external reference
+files: only references inside the configured document are followed. Unresolved
+or cyclic references remain visible and do not make the build recurse
+indefinitely.
+
+## Write useful descriptions
+
+Descriptions in operations, parameters, bodies, responses and schema
+properties use CommonMark with GitHub-flavoured Markdown support. Raw HTML is
+parsed and sanitized before rendering. This lets an API contract remain
+readable without trusting arbitrary HTML from the specification.
+
+Link a schema in descriptive text using its local pointer:
+
+```yaml
+description: Returns a [Planet](#/components/schemas/Planet).
+```
+
+Heyo Docs converts that link into the same schema popover used by a type label.
+An empty link label falls back to the component's name. It also normalizes the
+entity: schema-link form used by Square descriptions when the referenced
+component exists. The non-standard api-endpoint: link scheme is intentionally
+shown as plain text rather than becoming a navigable URL.
+
+Use ordinary HTTP(S) links for external documentation. Use an explicit schema
+link only when the target is present in this document; a link to a component
+from a separate document cannot be resolved by the page payload.
+
+## How examples are selected
+
+The request editor and response panes need values even when a specification
+does not hand-author one. The normalizer uses the first available value in this
+order:
+
+1. An explicit parameter example, media-type example, or the first examples
+   entry's value.
+2. An explicit schema example, default, const, or first enum member.
+3. A synthetic value inferred recursively from the schema.
+
+For an OpenAPI 3 media object, JSON is preferred when several content types
+exist; otherwise the first declared media type is used. Swagger 2 selects an
+example matching the produces type when it can, then falls back to its first
+available example. The same preference applies to a Swagger request body from
+its consumes list.
+
+The inference rules are deterministic:
+
+| Schema shape                                     | Generated value                                           |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| Object                                           | An object containing generated values for every property. |
+| Array                                            | A one-item array.                                         |
+| Boolean                                          | true                                                      |
+| Integer                                          | 1                                                         |
+| Number                                           | 1.5                                                       |
+| String format date-time / date                   | 2026-01-01T00:00:00Z / 2026-01-01                         |
+| String format email, uuid, uri or url            | A representative value for that format.                   |
+| Other string                                     | "string"                                                  |
+| Identifier-like property (id, _\_id, _-id, \*Id) | ""                                                        |
+
+For allOf, object examples are merged; for other composed examples the first
+defined value is retained. oneOf and anyOf use the first alternative. A local
+reference is followed until a previous reference is encountered, which prevents
+cyclic models from producing unbounded sample data.
+
+Synthetic values make the interface immediately usable, but an explicit
+example is better API documentation. It captures meaningful combinations,
+shows real formats and avoids accidental requests using generic placeholders.
+
+## Parameters and body schemas
+
+Path-level parameters and operation-level parameters are combined. If both
+declare the same name and in pair, the later operation-level entry wins; this
+matches the common OpenAPI override pattern. Path parameters are always shown
+as required, even if the source omits required: true. Parameters whose in value
+is body are excluded from the parameter list and, for Swagger 2, are converted
+to the single request-body editor instead.
+
+OpenAPI 3 parameter content is supported alongside parameter.schema. When a
+parameter uses content, its chosen media type supplies the example and schema.
+For a request body, the first preferred media type supplies the editor's
+content type, description, schema and initial text.
+
+The interface currently gives editable inputs to path, query and header
+parameters. Other OpenAPI parameter locations remain part of the normalized
+model but are not exposed as a request field. Describe a cookie requirement in
+the operation and use a server-side authentication mechanism if it is needed
+for an interactive call.
+
+## Operation-level schema shards
+
+The build emits one JSON payload per endpoint. Its document field is not a copy
+of the original specification. Heyo Docs starts from references used by the
+normalized endpoint and its raw path item/operation, then repeatedly collects
+referenced component schemas and Swagger definitions until no new local
+reference is found.
+
+The resulting document contains only:
+
+- openapi or swagger version metadata;
+- reachable components.schemas entries; and
+- reachable Swagger definitions entries.
+
+This has two important outcomes. A deep schema popover always has the local
+definitions it needs, and unrelated schemas from a large API do not bloat every
+endpoint file or the browser's shared JavaScript bundle. Do not treat this JSON
+as a downloadable canonical OpenAPI document — it is a presentation payload
+optimized for one operation.
+
+The stable path for a payload is:
+
+```text
+/_heyo-docs/openapi/<normalized-group>/<normalized-tag>/<normalized-operation>.json
+```
+
+The segments are URL-encoded when the filename is produced. The payload is
+public; never place secrets, private examples or credentials in a schema that
+you would not want a documentation reader to retrieve.
+
+## Schema authoring checklist
+
+- Prefer reusable local component schemas for objects shared by operations.
+- Make required explicit and give required path parameters a schema.
+- Add description, example, default and enum values where they explain behavior
+  better than a generic inferred sample.
+- Keep reference targets within the single document configured in schema.
+- Use allOf, oneOf and anyOf deliberately, supplying a concrete example when
+  the first branch is not a representative request.
+- Do not put confidential production values in examples: endpoint JSON shards
+  are public build artifacts.

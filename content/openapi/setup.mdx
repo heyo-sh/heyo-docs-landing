@@ -1,0 +1,266 @@
+---
+title: OpenAPI Setup
+description: Configure a JSON or YAML API description and turn its operations into static, interactive reference pages.
+---
+
+# OpenAPI Setup
+
+Heyo Docs turns an API description into endpoint pages at development and build
+time. An API section is declared in heyo-docs.config.ts; the Vite integration
+loads the document, derives routes and navigation, and emits a small static
+payload for every operation. The documentation shell receives an endpoint
+index for navigation and search, rather than the complete specification.
+
+This guide explains the configuration contract, how sources are resolved, and
+what is generated. It applies to the React Router example in this repository
+and to the generated Astro and Next.js applications.
+
+## Prerequisites
+
+The application must register the Heyo Docs Vite plugin with the same validated
+configuration that the documentation UI uses. In this example, the plugin is
+added after the framework and Tailwind plugins:
+
+```ts
+// vite.config.ts
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import { heyoDocs } from "@heyo-sh/heyo-docs/vite";
+
+import config from "./heyo-docs.config";
+
+export default defineConfig({
+  plugins: [tailwindcss(), reactRouter(), heyoDocs({ config })],
+});
+```
+
+The content option is required in heyoDocs(...). It is the base directory for
+MDX and for local schemas; both "content" and "./content" refer to the
+application's content directory. The source document itself must parse as JSON
+or YAML and have a top-level paths object. A parse or loading error stops a
+production build. In development, a local schema change triggers a full reload
+so generated routes, navigation and endpoint data stay in sync.
+
+## Add an API section
+
+Add an object containing only schema to the sections array of a documentation
+group. A schema section has no hand-written section name: generated tag names
+become sidebar section names automatically.
+
+```ts title="heyo-docs.config.ts"
+import { heyoDocs } from "@heyo-sh/heyo-docs";
+
+export default heyoDocs({
+  content: "content",
+  groups: [
+    {
+      group: "API Reference",
+      sections: [
+        {
+          section: "Overview",
+          pages: ["api-overview", "openapi/setup"],
+        },
+        { schema: "./openapi.yaml" },
+      ],
+    },
+  ],
+});
+```
+
+Section order is significant. Heyo Docs replaces the schema object at its exact
+position with one expanded section for each tag found in the source document.
+Place MDX before it for authentication, onboarding, migration or conceptual
+material that should precede endpoint links; place another MDX section after it
+for troubleshooting or release notes.
+
+The configuration schema is strict: extra properties on a schema object are
+rejected. A schema section belongs only in a documentation group; a changelog
+group has its own updates contract and cannot host OpenAPI operations.
+
+## Choose a schema source
+
+The schema value accepts three source forms. The extension determines whether
+the loader parses JSON or YAML: .yaml and .yml use the YAML parser; every
+other extension is parsed as JSON.
+
+| Source                | Example                            | Resolution                                   |
+| --------------------- | ---------------------------------- | -------------------------------------------- |
+| Content-relative file | "./openapi.yaml"                   | Read below the configured content directory. |
+| Public file           | "/openapi.json"                    | Read from the application public directory.  |
+| HTTP(S) URL           | "https://example.com/openapi.json" | Fetched by the build process.                |
+
+For example, this repository keeps the Planet API fixture at
+content/openapi.json, so schema: "./openapi.json" resolves to that file. The
+current heyo-landing navigation uses this area for the OpenAPI guides; add the
+schema section shown above to expose the fixture's generated endpoint pages. A
+leading slash is not a URL path resolved by the browser; it explicitly means
+the public directory. Keep relative sources inside content for a portable
+project layout.
+
+Remote documents are build dependencies. The loader fetches the URL whenever
+the development/build model is evaluated and fails on a non-success response.
+Use an immutable release URL or a commit-pinned URL when a repeatable build is
+important. The built-in loader does not expose authentication headers,
+credentials or a refresh cache for a private remote specification; keep such a
+document local or arrange a public, pinned build artifact.
+
+## Supported document shapes
+
+The operation normalizer recognises the eight OpenAPI HTTP method fields: get,
+put, post, delete, options, head, patch and trace. It accepts OpenAPI 3.x
+descriptions and has a compatibility path for Swagger 2.0 when the swagger
+field starts with "2.".
+
+For OpenAPI 3.x, parameters, request bodies, responses, servers, security
+schemes and schemas use their normal components locations. For Swagger 2, the
+equivalent compatibility inputs are host, basePath, schemes, consumes,
+produces, securityDefinitions, body parameters and definitions. Only HTTP and
+HTTPS Swagger schemes contribute a selectable server.
+
+The renderer deliberately consumes a focused, useful subset rather than
+validating every OpenAPI keyword. It understands local #/... references,
+including escaped JSON Pointer segments, and preserves unresolved or cyclic
+references instead of recursing forever. External reference files are not
+loaded or bundled; bundle a referenced definition into the configured document
+if it must render in the reference.
+
+## A complete small example
+
+This OpenAPI 3.1 operation demonstrates the fields that make a page useful: a
+stable operationId, a tag, server URL, path parameter, query parameter, request
+body, response, security definition and referenced object schemas.
+
+```yaml
+openapi: 3.1.0
+info:
+  title: Planet API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+security:
+  - BearerAuth: []
+paths:
+  /organizations/{organizationId}/planets:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          example: org_123
+    post:
+      operationId: createPlanet
+      summary: Create a planet
+      tags: [Planets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanetInput"
+      responses:
+        "201":
+          description: The newly created planet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Planet"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    PlanetInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Mars
+    Planet:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          example: planet_mars
+        name:
+          type: string
+```
+
+Summary becomes the visible endpoint title. Without it, Heyo Docs turns
+operationId into a readable title; without either, it uses the uppercase method
+and path. Use an operationId anyway: it makes route names stable when the human
+summary changes.
+
+## Generated navigation and URLs
+
+Every operation gets a route of this shape:
+
+```text
+/<group>/<tag>/<operation>
+```
+
+Each segment is normalized to kebab case. The group label supplies the first
+segment, the operation's first tag supplies the second, and operationId
+supplies the third. When a tag is absent, Heyo Docs uses the first
+non-parameter path segment (or endpoints); when operationId is absent, it
+derives the last segment from the method and path. For example:
+
+```text
+group: "API Reference"
+tags: ["Planets"]
+operationId: "createPlanet"
+
+/api-reference/planets/create-planet
+```
+
+Routes must be unique. Hand-authored MDX routes are reserved first, so an MDX
+page always wins if it collides with a generated endpoint route. Two generated
+operations that normalize to the same slug are retained with numeric suffixes
+such as -2. Prefer unique operation IDs and tags for predictable public URLs.
+
+The sidebar lists generated operations under the first tag and marks each with
+a colored HTTP-method badge. Operations without tags are listed under
+Endpoints. Endpoint titles, method, path, operation ID, tags and parameter
+names are included in local search.
+
+## Build outputs and runtime data
+
+The plugin exposes three distinct data shapes:
+
+- virtual:heyo-docs-openapi contains full configured documents for server-side
+  rendering and resource routes. In a browser build it is intentionally empty,
+  preventing a large spec from entering the shared client chunk.
+- virtual:heyo-docs-openapi/index contains a compact endpoint index for the
+  sidebar, search and route matching.
+- One detailed JSON file is emitted for each operation at
+  /\_heyo-docs/openapi/&lt;group&gt;/&lt;tag&gt;/&lt;operation&gt;.json.
+
+The detail file includes the endpoint's parameters, body, responses, examples,
+servers and security metadata. It retains only the schemas reachable from that
+operation, including transitive local schema references, rather than copying
+the complete document into every endpoint asset. Framework adapters serialize
+that same detailed payload into the initial static endpoint page, so first
+render does not wait for a client data request. The JSON remains a public,
+cacheable asset for client transitions and custom integrations.
+
+During vite dev, the same URL is served from memory with Cache-Control:
+no-store; it is not a file you need to create by hand.
+
+## Configuration checklist
+
+- Register `heyoDocs({ config })` in the Vite plugin list.
+- Set content and add a schema object to a documentation group.
+- Keep local sources under content, public sources under public, or pin a
+  remote HTTP(S) source.
+- Include a top-level paths object and use JSON/YAML matching the file
+  extension.
+- Provide summary, operationId, tags, descriptions and examples for pages that
+  remain clear without reading the raw specification.
+- Add API servers and a security scheme only when the interactive request flow
+  should use them.
+- Run the application's build after a schema change; generated routes and
+  payloads are release artifacts.

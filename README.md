@@ -1,4 +1,4 @@
-# Heyo Docs website
+# Heyo Docs Landing
 
 The public documentation and landing site for [Heyo Docs](https://github.com/heyo-sh/heyo-docs). It is built with React Router, Bun, and Cloudflare Workers.
 

@@ -1,0 +1,239 @@
+---
+title: Endpoints
+description: Learn how Heyo Docs normalizes API operations into routes, navigation entries, static payloads, examples, and Markdown mirrors.
+---
+
+# Endpoints
+
+A schema section creates one API-reference page for every supported operation in
+its paths object. The endpoint page is not a generic OpenAPI viewer: Heyo Docs
+first converts the source operation into a stable presentation model, then uses
+that model for route matching, navigation, search, static payloads, request
+examples and Markdown output.
+
+This guide documents that conversion so public endpoint URLs and the reference
+experience remain predictable as an API grows.
+
+## Operations that become pages
+
+Heyo Docs walks every entry in paths and reads these operation fields:
+
+```text
+get, put, post, delete, options, head, patch, trace
+```
+
+A path item can declare shared parameters. Those parameters are combined with
+the parameters on each operation. Operations outside paths, including callbacks
+and webhooks, are not generated as endpoint pages by the current renderer.
+
+A normalized endpoint contains its method, path, title, description, summary,
+operationId, tags, parameters, request body, documented responses, security
+requirements, servers and security schemes. The original document is retained
+server-side while the endpoint is being expanded; browser navigation receives
+a compact index until it opens a specific operation.
+
+## Titles, tags and generated URLs
+
+Endpoint naming follows a clear precedence:
+
+| Field          | Source order                                                         | Effect                                                           |
+| -------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Title          | summary, then operationId, then METHOD + path                        | Heading, sidebar label, search result and page navigation label. |
+| Tag            | First item in tags, then first concrete path segment, then endpoints | Sidebar section and URL segment.                                 |
+| Operation name | operationId, then method + path                                      | Final URL segment.                                               |
+
+Every source value is normalized to kebab case. For this operation:
+
+```yaml
+paths:
+  /organizations/{organizationId}/planets:
+    get:
+      operationId: listPlanets
+      summary: List planets
+      tags: [Planets, Reporting]
+```
+
+the endpoint route is:
+
+```text
+/api-reference/planets/list-planets
+```
+
+when the surrounding group is named API Reference. Only the first tag becomes
+the navigation section and URL segment; remaining tags are preserved in the
+endpoint model and search index but do not duplicate an endpoint in the
+sidebar.
+
+Do not use a route as the primary identifier of an operation. Rename a group,
+first tag or operationId and its public URL changes. Stable, unique operation
+IDs are the best foundation for durable URLs; summaries can then be edited
+without changing the route.
+
+## Collision rules
+
+MDX pages reserve their routes before API operations are added. If a document
+page has the same URL as a generated operation, the MDX page wins and that
+endpoint is not generated. This allows a project to replace a specific
+generated page with a custom guide without creating an ambiguous route.
+
+If two generated operations normalize to the same URL, Heyo Docs keeps both and
+adds a numeric suffix to later entries: -2, -3 and so on. That safety net is
+not a substitute for unique operation IDs — suffixes depend on source order and
+make links less obvious.
+
+Schema sections are expanded where they occur in a group's sections array. In
+the sidebar, each first tag becomes an expanded section, and every endpoint is
+displayed with its HTTP-method badge. MDX sections before and after the schema
+remain in their configured order. Previous/next links use that same resolved
+navigation order.
+
+## Parameters
+
+The parser accepts path-item and operation parameters. It resolves local
+references before extracting each parameter, removes body parameters from the
+ordinary parameter list, and resolves duplicate name/location pairs by keeping
+the last value. In practice, an operation-level parameter overrides the
+path-item parameter with the same name and in value.
+
+Each normalized parameter contains:
+
+- name and location;
+- description;
+- required and deprecated state;
+- a selected or generated example; and
+- a schema, when supplied.
+
+Path parameters are always treated as required by the UI, even if a source
+document omits required: true. The page gives editable fields only to path,
+query and header locations. Query fields are appended with URLSearchParams, so
+values are encoded as query-string values. Path fields are URI-encoded when
+they replace a matching path template. Header fields are included only when
+they have a non-empty value.
+
+OpenAPI 3 parameters may use schema or content. When content is present, the
+selected media type supplies both the parameter schema and its example. Swagger
+2 parameters can declare type, format, items, enum and default directly; Heyo
+Docs converts that subset into the same schema representation.
+
+The request interface intentionally does not create controls for other
+locations such as cookies. If an operation depends on a cookie, document the
+requirement and use an authentication approach that the server-side request
+flow can safely establish.
+
+## Request bodies and responses
+
+An OpenAPI 3 request body is read from requestBody.content. The renderer
+prefers an application type containing json in its name, then falls back to the
+first declared media type. That chosen type supplies the content-type label,
+description, schema and initial example. A required body is marked as required
+and the client refuses to send an empty one.
+
+Swagger 2 compatibility finds the last body parameter in the combined
+parameter list, then uses its schema and the first preferred consumes type.
+It does not expose Swagger form parameters as a separate form model.
+
+Every key in an operation's responses object becomes a documented response —
+including default or non-numeric status keys. For OpenAPI 3, the response uses
+the selected content media type; for Swagger 2, it uses a matching produces
+example when available. A response panel can therefore show its description,
+content type, sample value and expandable response schema even before any live
+call is made.
+
+Explicit examples win. If one is missing, Heyo Docs derives a deterministic
+sample from the schema. See the Schemas article for the exact precedence and
+fallback values.
+
+## Servers and security metadata
+
+Server selection follows the most specific OpenAPI 3 definition:
+
+1. operation servers;
+2. path-item servers;
+3. document servers.
+
+Each server URL has variables substituted from the variable default. If a
+default is absent, the first enum member is used; if neither is available, the
+placeholder remains in the URL. Swagger 2 creates server URLs from host,
+basePath and HTTP(S) schemes, defaulting to HTTPS when host is present but no
+acceptable scheme is listed.
+
+Security selection similarly uses operation security when it is an array,
+otherwise document-level security. The endpoint includes the complete
+components.securitySchemes map for OpenAPI 3 or securityDefinitions map for
+Swagger 2. The interactive UI currently recognizes a Bearer input only when a
+referenced scheme has type http and scheme bearer. Other schemes remain
+documented metadata; they are not automatically transformed into a request
+editor.
+
+## Static delivery model
+
+The Vite plugin emits a compact endpoint index for browser navigation. It
+includes route, method, path, title, operationId, tags and the minimal parameter
+metadata needed for search and routing. It deliberately excludes the source
+document, detailed schemas, bodies, responses, server list and security
+configuration.
+
+The complete operation presentation payload is emitted as one public file:
+
+```text
+/_heyo-docs/openapi/<group>/<tag>/<operation>.json
+```
+
+The payload contains only the component schemas reachable from that operation.
+This is why a multi-megabyte API document does not end up in the shared client
+bundle or duplicated verbatim for every route.
+
+The framework templates render the active endpoint with the same detailed
+payload during static generation. The initial HTML and hydrated component are
+therefore complete on first paint. During a client-side endpoint transition,
+the router fetches the destination JSON shard before it commits the new route;
+a failed fetch falls back to a full navigation or a route error depending on
+the framework.
+
+## What an endpoint page provides
+
+For a fully described operation, the built-in OpenAPI page renders:
+
+- an HTTP method badge, raw path, title and Markdown description;
+- a server input or a selection list when multiple declared servers exist;
+- a persistent Bearer-token field when the operation requires an eligible
+  scheme;
+- editable path, query and header parameters;
+- an editable request body, with JSON validation for JSON media types;
+- a Send request action and a readable live-response panel;
+- documented response status, description, examples and schema trees;
+- cURL and JavaScript fetch examples that update as inputs change; and
+- previous/next navigation plus Markdown actions for LLM and reader use.
+
+The cURL and JavaScript snippets use the current server, parameter values,
+header values, Bearer token and body text. They are convenience examples, not
+a generated SDK: callers should still handle non-JSON or empty responses as
+their API contract requires.
+
+## Markdown representations
+
+A generated operation also participates in the documentation's Markdown and
+LLM outputs. Its Markdown view contains a heading, the operation description,
+the METHOD + path line, a parameter table, request-body details and documented
+responses with examples. It is available through the same .md path convention
+as authored pages.
+
+That Markdown is intentionally a concise operation representation. It does not
+attempt to serialize every UI element, full schema tree, security rule or the
+interactive request state. Use the endpoint JSON shard or the source OpenAPI
+document when an integration needs structured data.
+
+## Authoring checklist
+
+- Give every public operation a unique operationId, concise summary and useful
+  description.
+- Use a stable first tag; it affects both navigation and the public route.
+- Declare path-level parameters once, then use operation-level overrides only
+  where their values or descriptions genuinely differ.
+- Provide explicit examples for non-trivial parameters, bodies and responses.
+- Keep request and response schemas locally referenceable from the configured
+  document.
+- Define servers and security requirements accurately before enabling live
+  requests.
+- Check the final static route after changing a group name, first tag or
+  operationId.

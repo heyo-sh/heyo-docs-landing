@@ -1,0 +1,204 @@
+---
+title: Vercel
+description: Release a Heyo Docs site to Vercel with preview deployments, static documentation delivery, and an optional server-side OpenAPI request proxy.
+---
+
+# Deploy to Vercel
+
+Vercel can build a Heyo Docs project directly from a connected repository or
+from the CLI. Documentation pages, OpenAPI endpoint data, and discovery files
+are generated during the build and served as static assets. Vercel Functions
+are used only where the application needs a server, such as the optional
+**Try it** OpenAPI request proxy.
+
+Select Vercel in `create-heyo-docs` for a ready-to-deploy project. The creator
+adds the framework integration, a `vercel.json` where needed, the Vercel CLI,
+and a production deploy script.
+
+## Start with the Vercel target
+
+Create the project with the deployment overlay instead of adding hosting files
+by hand:
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock language="bash" title="Bun">
+    {`bun create @heyo-sh/heyo-docs acme-docs --template next --deployment vercel`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="npm">
+    {`npm create @heyo-sh/heyo-docs@latest acme-docs -- --template next --deployment vercel`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="pnpm">
+    {`pnpm create @heyo-sh/heyo-docs acme-docs --template next --deployment vercel`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="Yarn">
+    {`yarn dlx @heyo-sh/create-heyo-docs acme-docs --template next --deployment vercel`}
+  </CodeBlock>
+</CodeBlockGroup>
+
+Replace `next` with `react-router` or `astro` to use a different framework.
+The creator uses Vercel's native Next.js support, the React Router Vercel
+preset, or Astro's Vercel adapter as appropriate.
+
+| Framework    | Vercel integration         | What stays dynamic               |
+| ------------ | -------------------------- | -------------------------------- |
+| React Router | React Router Vercel preset | Server actions, including Try it |
+| Astro        | `@astrojs/vercel` adapter  | On-demand Astro endpoint         |
+| Next.js      | Native Next.js deployment  | Route handler for Try it         |
+
+The static-first design is intentional: normal documentation visits do not
+need function execution. Keep the generated runtime integration when the
+interactive request action is enabled; deploying a plain export would remove
+that endpoint.
+
+## Configure the canonical URL
+
+Set the final public domain in `heyo-docs.config.ts` before creating the
+production build:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  siteUrl: "https://docs.acme.com",
+  title: "Acme Docs",
+  // ...
+});
+```
+
+`siteUrl` is used in canonical metadata and absolute generated URLs, including
+the sitemap, RSS feed, and AI-facing files. It should point to the production
+custom domain, not a Vercel deployment URL. Preview deployments can still be
+tested at their own generated addresses.
+
+<Callout type="tip" title="One value for every production build">
+  Treat <code>siteUrl</code> as site identity, not deployment state. Keep the
+  same production value across preview builds unless the preview deliberately
+  represents a different public site.
+</Callout>
+
+## Create a preview deployment
+
+The first CLI deployment authenticates and links the local directory to a
+Vercel project interactively. Start with a preview so the generated pages and
+any request action can be tested without changing production traffic.
+
+```bash
+bun run typecheck
+bunx vercel
+```
+
+Vercel prints the preview URL when the deployment completes. Verify the MDX
+pages, generated OpenAPI routes, and the resource endpoints before publishing.
+If the project is already linked, the same command creates another preview.
+
+For a repository-driven workflow, import the repository in Vercel instead. A
+push or pull request then creates a preview deployment automatically. Keep the
+project root and package manager aligned with the generated application; Vercel
+uses the framework integration in the project to build the site.
+
+## Publish to production
+
+The Vercel overlay adds a production script that runs `vercel --prod` using the
+project-local CLI:
+
+```bash
+bun run deploy
+```
+
+The first production release associates the project with its production
+domain. In a Git workflow, configure the production branch in Vercel and let
+the same build run after merges. Preview deployments remain useful for
+reviewing documentation, schema changes, and generated metadata before that
+promotion.
+
+If you want a release to be built as production but not receive the production
+domain immediately, use Vercel's staged-production workflow from the CLI or
+dashboard. Do not point `siteUrl` at that temporary deployment URL.
+
+## Add the custom domain
+
+Add the desired hostname in the Vercel project, then apply the DNS records
+shown by Vercel. The CLI can also add and inspect a domain:
+
+```bash
+bunx vercel domains add docs.acme.com acme-docs
+bunx vercel domains inspect docs.acme.com
+```
+
+After the domain is verified and serving traffic, make sure it is the value of
+`siteUrl` and run another production deployment if necessary. Vercel provisions
+TLS for the configured domain; confirm that both the root URL and a nested
+documentation route redirect or resolve as intended.
+
+## Environment variables and the request boundary
+
+Most Heyo Docs sites require no runtime secrets: MDX content, OpenAPI navigation
+data, and search assets are public build output. When application routes need
+configuration, set it in the appropriate Vercel environment rather than
+committing it to MDX, `vercel.json`, or client-side configuration.
+
+The OpenAPI **Try it** handler is deliberately narrow. It permits requests only
+to servers declared by the public OpenAPI document, then forwards the selected
+request server-side. Use a test API when validating a preview, and add normal
+API-side authentication, rate limits, logging, and abuse controls. A deployed
+documentation proxy must not become a substitute for those protections.
+
+## Verify a release
+
+Check the response and canonical metadata for an ordinary article, then open
+the generated files that should be present on every production build:
+
+```text
+/
+/sitemap.xml
+/robots.txt
+/rss.xml
+/llms.txt
+/llms-full.txt
+```
+
+When OpenAPI is configured, also load an endpoint page and test the request
+action only against a safe target. If a preview behaves differently from
+production, compare the Vercel build logs and the environment variables for
+the two environments before changing the application code.
+
+## Troubleshoot common release issues
+
+### A page is missing after deployment
+
+Run `bun run build` locally and resolve any content or navigation error before
+retrying. Generated documentation routes follow the same page model as the
+sidebar; an invalid configured page, a route collision, or a failed OpenAPI
+fetch prevents the final route set from being produced. Remote schemas are
+build dependencies, so use a stable URL and make them reachable to the Vercel
+build environment.
+
+### Metadata has the wrong hostname
+
+Check the committed `siteUrl`, then create a new production deployment. The
+HTML, sitemap, RSS, and discovery files are generated build artefacts; changing
+a domain in the dashboard alone does not rewrite the absolute URLs in an
+already-built release.
+
+### Try it returns an error
+
+Confirm that the operation's selected server is declared in the OpenAPI
+document and is reachable from Vercel. Then check the function logs and the
+target API's authentication requirements. Browser CORS rules are not the
+relevant boundary here—the proxy performs the outbound request server-side.
+
+<RelatedTopics title="Continue deploying">
+  <RelatedTopic
+    icon="gitFork"
+    name="Review the Next.js static-first model"
+    src="/framework/nextjs#rendering-strategy-for-the-nextjs-template"
+  />
+  <RelatedTopic
+    icon="code"
+    name="Operate the OpenAPI Try it proxy safely"
+    src="/openapi/try-it"
+  />
+  <RelatedTopic
+    icon="search"
+    name="Check the generated sitemap"
+    src="/seo-and-search/sitemap"
+  />
+</RelatedTopics>

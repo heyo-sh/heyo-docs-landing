@@ -1,0 +1,109 @@
+---
+title: Appearance
+description: Choose the built-in Grain theme, color mode, primary and secondary colors, and CSS token overrides.
+---
+
+# Appearance
+
+The supplied projects use the built-in Grain theme: a responsive documentation
+shell with a sticky header, sidebar navigation, local search, a reading
+column, and a desktop table of contents. Theme choice and initial color mode
+are configured in `heyo-docs.config.ts`; deeper visual changes are ordinary
+project CSS.
+
+## Select the theme and initial mode
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  theme: "grain",
+  mode: "system",
+});
+```
+
+`grain` is the currently available built-in theme. The configuration validates
+theme names, so an unavailable theme fails instead of falling back silently.
+
+`mode` accepts three values:
+
+| Value    | Initial behavior                                      |
+| -------- | ----------------------------------------------------- |
+| `system` | Follow the operating-system light or dark preference. |
+| `light`  | Start with the light palette.                         |
+| `dark`   | Start with the dark palette.                          |
+
+The generated theme provider stores a reader's manual choice in local storage
+under `heyo-docs-theme`. That stored preference takes precedence over `mode` on
+later visits. The sidebar footer toggle changes the current reader preference;
+it does not rewrite the project configuration.
+
+## Set primary and secondary colors
+
+Use CSS color values for the two common accents:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  colors: {
+    primary: "oklch(0.48 0.19 265)",
+    secondary: "oklch(0.95 0.03 265)",
+  },
+});
+```
+
+Grain passes these values to its layout as the `--primary` and
+`--secondary` CSS custom properties. Standard CSS formats such as hex, RGB,
+HSL, and OKLCH work as long as the browser can parse them.
+
+> The configuration changes only `--primary` and `--secondary`. It does not
+> calculate matching `--primary-foreground` or `--secondary-foreground`
+> values. Check contrast for buttons and other text-on-color combinations.
+
+## Override the complete token set
+
+Place project overrides after the theme import. In this React Router example,
+use `app/app.css`:
+
+```css title="app/app.css"
+@import "@fontsource-variable/figtree";
+@import "@heyo-sh/heyo-docs/theme/grain.css";
+
+:root {
+  --primary: oklch(0.48 0.19 265);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.58 0.15 265);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --primary: oklch(0.78 0.12 265);
+  --primary-foreground: oklch(0.18 0.02 265);
+  --ring: oklch(0.72 0.12 265);
+}
+```
+
+Grain exposes the familiar shadcn-style CSS variables for background,
+foreground, card, popover, primary, secondary, muted, accent, destructive,
+border, input, ring, sidebar, and radius values. Override the variables rather
+than trying to restyle generated markup one component at a time.
+
+The equivalent stylesheet is `app/app.css` in generated Next.js projects and
+`src/styles/app.css` in generated Astro projects.
+
+## Preserve the import order
+
+Import the Heyo Docs theme before project tokens and component styles. The
+theme provides Tailwind registration, semantic color mappings, and base styles;
+your later rules are intended to replace its defaults.
+
+Avoid importing a second copy of Tailwind or a conflicting global reset above
+the theme import. If a project needs a broad design-system change, first
+change a token and verify both light and dark modes before adding selector
+overrides.
+
+## Check responsive surfaces
+
+Preview the home page, a long article, a code block, the search dialog, the
+mobile navigation sheet, and an OpenAPI page in both modes. The layout uses
+the same tokens across each surface, so contrast or spacing issues usually
+appear in more than one place.

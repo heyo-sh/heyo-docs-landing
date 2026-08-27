@@ -1,0 +1,70 @@
+---
+title: Grain
+description: A clear, product-focused documentation theme inspired by Better Auth.
+---
+
+# Grain
+
+Grain is a focused documentation shell with a structured sidebar, breadcrumbs
+in the header, and a quiet reading column. Its visual direction is inspired by
+[Better Auth](https://www.better-auth.com/): restrained borders, a compact
+header, and an interface that keeps product documentation in the foreground.
+
+## Documentation previews
+
+### Light mode
+
+[PLACEHOLDER]
+
+### Dark mode
+
+[PLACEHOLDER]
+
+## Configure Grain
+
+Choose Grain in `heyo-docs.config.ts` and set the initial color mode. `system`
+follows the visitor's operating-system preference; `light` and `dark` select a
+fixed initial palette. A visitor can still switch modes from the interface.
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  theme: "grain",
+  mode: "system",
+});
+```
+
+Load its stylesheet before project-specific CSS tokens:
+
+```css title="app/app.css"
+@import "@heyo-sh/heyo-docs/theme/grain.css";
+
+:root {
+  --primary: oklch(0.48 0.19 265);
+}
+```
+
+Grain keeps navigation, search, and group tabs in the sidebar. On desktop the
+header shows the current breadcrumb, while the article remains the primary
+reading surface. Override semantic CSS variables after the import to adapt
+color, radius, or typography without changing the page structure.
+
+## Changelog previews
+
+### Light mode
+
+[PLACEHOLDER]
+
+### Dark mode
+
+[PLACEHOLDER]
+
+## OpenAPI previews
+
+### Light mode
+
+[PLACEHOLDER]
+
+### Dark mode
+
+[PLACEHOLDER]

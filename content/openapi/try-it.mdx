@@ -1,0 +1,191 @@
+---
+title: Try it
+description: Use and operate the server-side OpenAPI request proxy safely, including validation, Bearer tokens, declared servers and deployment boundaries.
+---
+
+# Try it
+
+The Send request button turns an endpoint page into a small API client. In
+generated applications it does not call the documented server directly from
+the browser. Instead, it sends a structured POST request to the same-origin
+route /heyo-docs-internal/openapi-request. That route reconstructs the
+documented endpoint on the server, validates the chosen target against the
+OpenAPI document, forwards the call, and returns the API response.
+
+This preserves a static-first documentation site while avoiding ordinary
+browser CORS restrictions. It is optional: the reference still works without
+the proxy, but a browser-direct request then needs the API server to allow CORS.
+
+## Request flow
+
+The flow for a generated React Router, Astro or Next.js application is:
+
+1. A reader opens a static endpoint page whose detailed OpenAPI payload was
+   generated at build time.
+2. They choose a declared API server, fill path/query/header fields, paste a
+   Bearer token when the security definition allows it, and optionally edit the
+   body.
+3. The client checks required inputs and JSON syntax where the selected request
+   body content type contains json.
+4. The client POSTs its state to the same-origin proxy.
+5. The proxy resolves endpointSlug against the server-side OpenAPI model,
+   checks the server allowlist, builds the documented URL and headers, then
+   calls the API.
+6. The proxy passes through the API status, status text, body and content-type.
+   The endpoint page displays the result.
+
+The proxy is the only dynamic OpenAPI surface in the generated templates.
+Static HTML, navigation, endpoint metadata and schema JSON do not go through
+this request path.
+
+## Use the request editor
+
+The page initializes each input from its explicit or generated OpenAPI example.
+Before sending, it requires every non-empty required path, query and header
+parameter. A missing required field produces a page-level error and no
+network request.
+
+For a request body:
+
+- An empty optional body is omitted.
+- An empty required body is rejected locally.
+- A body for a content type containing json must parse as JSON locally.
+- Any other text is passed through unchanged.
+
+The body editor does not manufacture a JSON envelope or transform form data.
+It sends exactly the entered text with the selected request body content type.
+Use a concrete OpenAPI example for a usable starting point.
+
+The right-side cURL and JavaScript examples update from the same form state.
+They show the final path substitutions, encoded query string, supplied header
+parameters, selected content type and Bearer token. They do not use the proxy:
+they model the direct call a developer would make from their own environment.
+
+## Servers are an allowlist
+
+The page takes its server list from the operation, path item or root document,
+in that precedence order. When more than one declared URL exists the UI renders
+a selection control; otherwise it renders an editable input initialized with
+the first declared server.
+
+The proxy accepts a non-empty server only if it exactly matches an endpoint
+server produced from the source document. It rejects an unknown server with
+HTTP 400. If an endpoint declares no server, a non-empty submitted server is
+also rejected; an empty server makes the documented path resolve relative to
+the documentation site's own origin.
+
+This check prevents a reader from turning the route into a general-purpose
+arbitrary-host proxy by editing the input. It is not a complete API security
+boundary. Treat every server URL placed in a public schema as approved for
+server-side requests, protect this endpoint with the same rate limits and
+abuse controls appropriate to your deployment, and ensure the declared API
+does not redirect requests to untrusted destinations.
+
+## Authentication behavior
+
+The UI displays a Bearer-token field only when both conditions hold:
+
+1. A security requirement references a scheme; and
+2. that scheme is an HTTP security scheme with scheme: bearer.
+
+When the reader enters a token, the browser stores it in localStorage under a
+key scoped to the documentation group, schema-section position and security
+scheme name. It is reused while moving between matching endpoint pages in that
+same browser. Clearing the field removes the stored item. Browsers that block
+storage still allow the token for the current view.
+
+On send, a non-empty token becomes an Authorization: Bearer &lt;token&gt; header.
+A supplied header parameter with the same name is overwritten by this Bearer
+header. Tokens are not placed in generated endpoint JSON, static HTML, Markdown
+mirrors or the compact endpoint index.
+
+The current UI does not create an editor for API keys, OAuth flows, cookie
+authentication, mutual TLS or arbitrary custom security schemes. Those schemes
+remain part of the normalized OpenAPI metadata, but the operator must provide
+an appropriate authentication mechanism outside this generic request form.
+
+## Proxy contract
+
+The request route accepts only POST. Its JSON body has this shape:
+
+```ts
+interface OpenApiRequestPayload {
+  bearerToken: string;
+  body?: string;
+  endpointSlug: string;
+  parameters: Record<string, string>;
+  server: string;
+}
+```
+
+Invalid JSON or an invalid payload returns HTTP 400. A slug that is absent from
+the server-side model returns HTTP 404. Any method other than POST returns HTTP
+405 with Allow: POST.
+
+The route rebuilds the model from the current Heyo Docs configuration, generated
+MDX page list and full OpenAPI documents. It does not trust endpoint details
+posted by the browser. That makes a fabricated method, path or source schema
+ineffective: only a known endpoint slug can be sent.
+
+For a valid endpoint, it constructs the target URL by:
+
+- replacing each `{name}` path template with the URI-encoded value of the matching
+  path:name field when provided;
+- appending non-empty query:name fields with URLSearchParams; and
+- resolving the final path relative to the selected server, or to the
+  documentation request URL when no server is declared.
+
+It constructs outbound headers from non-empty header:name fields, the selected
+request-body content type, and the optional Bearer token. The proxy does not
+forward the browser's cookies, request headers, IP address or session
+credentials to the documented API. The body is forwarded as the submitted
+string.
+
+The upstream response is returned with its status and status text, with only
+the upstream content-type copied into the response headers. Bodies for 204,
+205 and 304 responses are omitted. If the upstream fetch cannot be reached,
+the proxy returns HTTP 502 and the text "The API server could not be reached."
+
+## Direct mode for custom integrations
+
+OpenApiPage accepts an optional same-origin openApiRequestUrl. The generated
+templates pass /heyo-docs-internal/openapi-request. If a custom integration
+omits it, the page sends the documented method, headers and body directly to
+the selected API URL from the browser.
+
+Direct mode removes the server proxy but transfers CORS responsibility to the
+API. The browser will block cross-origin requests unless the target opts in
+with the required CORS headers. It also exposes the normal browser network
+surface, so use it only when that trade-off is appropriate.
+
+## Deploy correctly
+
+Do not deploy a generated template as a purely static export while the
+interactive proxy is still expected to work. The documentation pages and
+endpoint JSON are static, but the POST route needs a runtime:
+
+- React Router keeps SSR enabled and excludes the proxy from its prerendered
+  documentation routes.
+- Astro marks the POST route with prerender = false and uses a Node, Vercel or
+  Cloudflare adapter to host it.
+- Next.js uses a Route Handler; static documentation generation does not make
+  that handler disappear.
+
+If live API calls are not a requirement, remove the route and stop passing
+openApiRequestUrl to the documentation application. The API reference, static
+payloads, schema popovers, generated request snippets and Markdown mirrors
+continue to work.
+
+## Production checklist
+
+- Declare only intended, trusted API server URLs in the public specification.
+- Give every protected operation a correctly referenced Bearer scheme if the
+  built-in token field should appear.
+- Populate examples for all required inputs and request bodies.
+- Add deployment-level authentication, rate limits, observability and abuse
+  controls to the proxy when a public documentation site can invoke real APIs.
+- Verify that upstream responses do not expose sensitive data to unauthenticated
+  documentation readers.
+- Test expected CORS behavior if you intentionally use direct browser mode.
+- Remove the proxy when interactive requests are unnecessary; it is independent
+  from the static API reference.

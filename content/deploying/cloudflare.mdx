@@ -1,0 +1,204 @@
+---
+title: Cloudflare
+description: Deploy a static-first Heyo Docs site to Cloudflare Workers while keeping the optional OpenAPI request proxy server-side.
+---
+
+# Deploy to Cloudflare
+
+Cloudflare is a good fit when the documentation site should be delivered from
+the edge and the optional **Try it** OpenAPI action needs a small server-side
+boundary. Heyo Docs prerenders documentation pages, discovery files, and OpenAPI
+data at build time. Cloudflare serves those assets from its CDN; a Worker runs
+only for the dynamic request proxy and any application routes you add.
+
+Choose Cloudflare while creating a project whenever possible. The creator adds
+the adapter, Worker configuration, dependencies, and release script for the
+framework you select.
+
+## Choose the Cloudflare target
+
+Create a new project with the Cloudflare deployment overlay:
+
+<CodeBlockGroup defaultValue="pnpm" variant="line">
+  <CodeBlock language="bash" title="Bun">
+    {`bun create @heyo-sh/heyo-docs acme-docs --template react-router --deployment cloudflare`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="npm">
+    {`npm create @heyo-sh/heyo-docs@latest acme-docs -- --template react-router --deployment cloudflare`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="pnpm">
+    {`pnpm create @heyo-sh/heyo-docs acme-docs --template react-router --deployment cloudflare`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="Yarn">
+    {`yarn dlx @heyo-sh/create-heyo-docs acme-docs --template react-router --deployment cloudflare`}
+  </CodeBlock>
+</CodeBlockGroup>
+
+Use `astro` or `next` in place of `react-router` when that is the framework
+you need. The deployment model is the same, but the generated integration is
+appropriately different.
+
+| Framework    | Cloudflare integration                | Dynamic boundary           |
+| ------------ | ------------------------------------- | -------------------------- |
+| React Router | Worker plus `@cloudflare/vite-plugin` | React Router action routes |
+| Astro        | `@astrojs/cloudflare` adapter         | Astro on-demand endpoint   |
+| Next.js      | OpenNext for Cloudflare               | Next.js route handler      |
+
+Do not deploy only a framework's static output when the site includes **Try
+it**. That would publish the pages but omit `POST
+/heyo-docs-internal/openapi-request`. The generated Cloudflare overlay preserves
+that route while keeping all reader-facing documentation static.
+
+## Set the production URL
+
+Before the production build, replace the starter `siteUrl` with the final
+canonical HTTPS address. Heyo Docs uses it when generating canonical links,
+social metadata, `sitemap.xml`, RSS, and the AI-discovery files.
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  siteUrl: "https://docs.acme.com",
+  title: "Acme Docs",
+  // ...
+});
+```
+
+Use the custom domain rather than a temporary `workers.dev` address. If the
+domain is not ready yet, add it first, set `siteUrl`, and deploy again so every
+generated absolute URL agrees with the public origin.
+
+<Callout type="warning" title="Keep production URLs out of previews">
+  Preview and staging deployments can use their generated Cloudflare URL, but
+  the committed <code>siteUrl</code> should remain the canonical production URL.
+  Do not change it for every preview build.
+</Callout>
+
+## Make the first release
+
+Authenticate the local Wrangler CLI with the Cloudflare account that owns the
+target Worker and domain. The generated project includes Wrangler as a local
+development dependency.
+
+```bash
+bunx wrangler login
+```
+
+Then run the release command for the selected framework:
+
+<CodeBlockGroup defaultValue="React Router" variant="line">
+  <CodeBlock language="bash" title="React Router">
+    {`bun run typecheck
+bun run build
+bun run deploy`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="Astro">
+    {`bun run typecheck
+bun run build
+bun run deploy`}
+  </CodeBlock>
+  <CodeBlock language="bash" title="Next.js">
+    {`bun run typecheck
+bun run deploy`}
+  </CodeBlock>
+</CodeBlockGroup>
+
+For React Router, the build creates the client assets that Wrangler uploads
+beside the Worker. Astro writes its Cloudflare Worker configuration into
+`dist/server`, so it must be built before `bun run deploy`. The Next.js command
+runs the OpenNext build and deployment together. In all three cases, the
+generated `deploy` script is the source of truth—avoid replacing it with a
+generic static-site upload.
+
+The first deployment creates the Worker and prints its deployment URL. Open
+that URL before assigning production traffic.
+
+## Attach a custom domain
+
+A Cloudflare custom domain requires an active zone in the same account and a
+Worker to attach. In **Workers & Pages**, open the deployed Worker and add the
+hostname, then follow the dashboard's DNS instructions. Cloudflare provisions
+the certificate after the hostname is configured.
+
+Once the hostname resolves, confirm the public site and release again if you
+changed `siteUrl`:
+
+```bash
+bun run deploy
+```
+
+The deployment's Worker name comes from `wrangler.jsonc`. Set a stable,
+project-specific `name` before the first shared release; renaming it later
+creates a different Worker rather than updating the original one.
+
+## Publish from a repository
+
+For a repeatable release, run the same commands in continuous integration
+after the production branch passes type checking. Store Cloudflare credentials
+as CI secrets rather than in `wrangler.jsonc` or the repository. A useful
+release sequence is:
+
+1. Install the lockfile dependencies.
+2. Run `bun run typecheck`.
+3. Build the application when the framework requires a separate build.
+4. Run `bun run deploy` with a scoped Cloudflare deployment credential.
+5. Request the deployed origin and the generated discovery routes.
+
+The Worker configuration contains deployment metadata, not application secrets.
+Keep API keys and private OpenAPI sources out of the public content directory
+and use the platform's encrypted environment-variable mechanism for any
+application code that needs them.
+
+## Verify the deployed site
+
+Check one MDX route, one generated endpoint route when OpenAPI is enabled, and
+the static resource routes:
+
+```text
+/
+/sitemap.xml
+/robots.txt
+/rss.xml
+/llms.txt
+/llms-full.txt
+```
+
+Also exercise **Try it** only against a safe test endpoint. Its request handler
+accepts servers declared by the public OpenAPI document; that allowlist is an
+important deployment boundary, not a replacement for API authentication, rate
+limits, or observability.
+
+## Moving an existing project
+
+If the project was created with **Configure later**, add the Cloudflare overlay
+for its exact framework rather than mixing snippets from different targets. The
+fastest reliable reference is a fresh `create-heyo-docs` project with the same
+`--template` and `--deployment cloudflare` arguments. Compare its platform
+files and package changes with your application:
+
+- React Router needs the Vite plugin, `wrangler.jsonc`, and the Worker entry.
+- Astro needs the Cloudflare adapter and deploys the configuration generated
+  under `dist/server`.
+- Next.js needs the OpenNext configuration and deploys `.open-next` output.
+
+Keep the framework's static-first route configuration intact. In particular,
+do not remove the prerendered documentation paths merely because a Worker is
+present; the Worker is there for the small dynamic boundary, not to render each
+page on demand.
+
+<RelatedTopics title="Continue deploying">
+  <RelatedTopic
+    icon="gitFork"
+    name="Understand the React Router release model"
+    src="/framework/react-router#rendering-strategy-for-the-react-router-template"
+  />
+  <RelatedTopic
+    icon="code"
+    name="Operate the OpenAPI Try it proxy safely"
+    src="/openapi/try-it"
+  />
+  <RelatedTopic
+    icon="search"
+    name="Check search and discovery output"
+    src="/seo-and-search/sitemap"
+  />
+</RelatedTopics>

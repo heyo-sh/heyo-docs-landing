@@ -1,0 +1,8 @@
+node_modules/
+build/
+.react-router/
+.wrangler/
+.vercel/
+worker-configuration.d.ts
+bun.lock
+**/*.svg
