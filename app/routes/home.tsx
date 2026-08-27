@@ -101,24 +101,16 @@ export default function HomeRoute() {
         <div className="landing-enter landing-enter--8 w-full max-w-md text-left mb-10">
           <CodeBlockGroup className="my-0" defaultValue="pnpm" variant="line">
             <CodeBlock language="bash" title="Bun">
-              {`bun create @heyo-sh/heyo-docs my-docs
-cd my-docs
-bun run dev`}
+              {`bun create @heyo-sh/heyo-docs`}
             </CodeBlock>
             <CodeBlock language="bash" title="npm">
-              {`npm create @heyo-sh/heyo-docs@latest my-docs
-cd my-docs
-npm run dev`}
+              {`npm create @heyo-sh/heyo-docs@latest`}
             </CodeBlock>
             <CodeBlock language="bash" title="pnpm">
-              {`pnpm create @heyo-sh/heyo-docs my-docs
-cd my-docs
-pnpm dev`}
+              {`pnpm create @heyo-sh/heyo-docs`}
             </CodeBlock>
             <CodeBlock language="bash" title="Yarn">
-              {`yarn dlx @heyo-sh/create-heyo-docs my-docs
-cd my-docs
-yarn dev`}
+              {`yarn dlx @heyo-sh/create-heyo-docs`}
             </CodeBlock>
           </CodeBlockGroup>
         </div>
