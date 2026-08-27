@@ -83,7 +83,7 @@ frontmatter or heading.
 This object form is deliberately strict: `page` and `icon` are both required.
 `{ page: "quickstart" }` and `{ icon: "lightbulb" }` are invalid
 configuration. Use the normal string form for an article without an icon, and
-use `{ title, src }` for a custom sidebar link.
+use `{ title, src, icon? }` for a custom sidebar link.
 
 `page` resolves exactly like a string page reference: an extension-free file
 is preferred over a directory, and a trailing slash explicitly selects a
@@ -154,15 +154,17 @@ A page list can include a link that does not have an MDX source:
     {
       title: "Service status",
       src: "https://status.acme.com",
+      icon: "externalLink",
     },
   ],
 }
 ```
 
 Custom links use their `src` directly and are excluded from previous/next
-article navigation. They are useful for an admin console, status page, or a
-separate support destination. Use a regular path such as `/changelog` for a
-same-site destination.
+article navigation. Add an optional `icon` to display a semantic sidebar icon.
+They are useful for an admin console, status page, or a separate support
+destination. Use a regular path such as `/changelog` for a same-site
+destination.
 
 ## Add an OpenAPI section
 
