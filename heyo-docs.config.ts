@@ -88,6 +88,7 @@ export default heyoDocs({
           icon: "cursor",
           pages: [
             "manage-website/configuration",
+            "manage-website/integrations",
             "manage-website/site-identity",
             "manage-website/content",
             "manage-website/navigation",

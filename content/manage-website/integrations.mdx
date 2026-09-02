@@ -1,0 +1,172 @@
+---
+title: Integration
+description: Connect Adobe Analytics, Intercom, and Osano through one validated integrations object.
+---
+
+# Integration
+
+Use `integrations` in `heyo-docs.config.ts` to add supported third-party
+services to every documentation page. Integrations are grouped by purpose so
+consent tooling can load before analytics and support widgets.
+
+The current release supports Adobe Analytics, Intercom, and Osano. Configure
+only the providers you need; omitted categories and providers remain empty.
+
+## Configure integrations
+
+Add providers below their purpose-specific category:
+
+```ts title="heyo-docs.config.ts"
+import { heyoDocs } from "@heyo-sh/heyo-docs";
+
+export default heyoDocs({
+  content: "content",
+  integrations: {
+    analytics: {
+      adobe: {
+        launchUrl:
+          "https://assets.adobedtm.com/launch-EN93497c30fdf0424eb678d5f4ffac66dc.min.js",
+      },
+    },
+    support: {
+      intercom: {
+        appId: "abc123",
+      },
+    },
+    consent: {
+      osano: {
+        scriptUrl: "https://cmp.osano.com/your-tenant-id/your-site-id/osano.js",
+      },
+    },
+  },
+});
+```
+
+Every category is optional. The normalized configuration always contains the
+following empty structure when no provider is configured:
+
+```ts
+integrations: {
+  analytics: {},
+  support: {},
+  consent: {},
+}
+```
+
+Heyo Docs validates each configured provider and rejects unknown properties.
+This keeps the configuration explicit as support grows.
+
+## Framework support
+
+The official templates render configured integrations from the document root in
+every supported framework:
+
+| Framework    | Document shell                  |
+| ------------ | ------------------------------- |
+| Next.js      | `app/layout.tsx`                |
+| React Router | `app/root.tsx`                  |
+| Astro        | `src/layouts/docs-layout.astro` |
+
+No framework-specific integration settings are required. Keep provider
+configuration in `heyo-docs.config.ts`; the selected template owns the
+framework-specific script markup.
+
+## Analytics
+
+### Adobe Analytics
+
+Configure Adobe Experience Platform Launch with its production launch URL:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  integrations: {
+    analytics: {
+      adobe: {
+        launchUrl: "https://assets.adobedtm.com/launch-YOUR-ID.min.js",
+      },
+    },
+  },
+});
+```
+
+| Setting                        | Type     | Required | Description                              |
+| ------------------------------ | -------- | -------- | ---------------------------------------- |
+| `integrations.analytics.adobe` | `object` | Yes      | Enables the Adobe Analytics integration. |
+| `adobe.launchUrl`              | `string` | Yes      | HTTPS URL of the Adobe Launch script.    |
+
+Find the URL in Adobe Experience Platform Data Collection: open the Launch
+property, select **Environments**, and copy the script URL from the production
+environment. Heyo Docs loads that script asynchronously.
+
+## Support
+
+### Intercom
+
+Add the public app ID for your Intercom workspace:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  integrations: {
+    support: {
+      intercom: {
+        appId: "abc123",
+      },
+    },
+  },
+});
+```
+
+| Setting                         | Type     | Required | Description                                      |
+| ------------------------------- | -------- | -------- | ------------------------------------------------ |
+| `integrations.support.intercom` | `object` | Yes      | Enables the Intercom Messenger widget.           |
+| `intercom.appId`                | `string` | Yes      | Public Intercom app ID; at least six characters. |
+
+Heyo Docs adds Intercom's standard browser bootstrap snippet to the document
+head. The widget script loads asynchronously after the browser has loaded the
+page.
+
+## Consent
+
+### Osano
+
+Use the Osano script URL generated for your site:
+
+```ts title="heyo-docs.config.ts"
+export default heyoDocs({
+  content: "content",
+  integrations: {
+    consent: {
+      osano: {
+        scriptUrl: "https://cmp.osano.com/your-tenant-id/your-site-id/osano.js",
+      },
+    },
+  },
+});
+```
+
+| Setting                      | Type     | Required | Description                                      |
+| ---------------------------- | -------- | -------- | ------------------------------------------------ |
+| `integrations.consent.osano` | `object` | Yes      | Enables the Osano cookie-consent integration.    |
+| `osano.scriptUrl`            | `string` | Yes      | HTTPS `cmp.osano.com` URL ending in `/osano.js`. |
+
+Osano is placed before analytics and support scripts and loads synchronously.
+This gives the consent manager the first opportunity to apply its policy
+before other third-party services are requested. If you use Osano's Strict
+mode, mark the domains required by your documentation assets as essential in
+your Osano managed rules.
+
+## Keep credentials safe
+
+Integration settings become part of the browser-facing documentation site.
+Only add public identifiers and public script URLs. Never add private API keys,
+server credentials, or user data to `heyo-docs.config.ts`.
+
+After changing integrations, run a production build and verify the consent
+banner, analytics requests, and support widget in a browser:
+
+```bash
+bun run typecheck
+bun run build
+```

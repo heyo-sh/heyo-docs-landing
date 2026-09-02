@@ -55,23 +55,25 @@ configuration for Vite and another for the rendered application.
 
 ## Top-level settings
 
-| Setting       | Purpose                                                                                             | Default                                          |
-| ------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `content`     | Directory containing MDX files and content-relative OpenAPI documents.                              | Required                                         |
-| `title`       | Default document title and site name used by metadata.                                              | `Heyo Documentation`                             |
-| `description` | Default site and page description when a page does not provide one.                                 | `Clear, focused documentation for your project.` |
-| `theme`       | Built-in visual theme. The current release provides `grain`.                                        | `grain`                                          |
-| `mode`        | Initial color preference: `system`, `light`, or `dark`.                                             | `system`                                         |
-| `colors`      | Optional `primary` and `secondary` CSS color overrides.                                             | `{}`                                             |
-| `navigation`  | Application-owned JSX placed by the active theme. Grain renders it at the right side of the header. | Omitted                                          |
-| `groups`      | Documentation and changelog groups in sidebar order.                                                | `[]`                                             |
-| `footer`      | Optional website and GitHub URLs for the sidebar footer.                                            | `{}`                                             |
-| `branding`    | Brand name and optional logo for the header.                                                        | Name falls back to `title`                       |
-| `siteUrl`     | Canonical public origin used for absolute generated URLs.                                           | Omitted                                          |
+| Setting        | Purpose                                                                                             | Default                                          |
+| -------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `content`      | Directory containing MDX files and content-relative OpenAPI documents.                              | Required                                         |
+| `title`        | Default document title and site name used by metadata.                                              | `Heyo Documentation`                             |
+| `description`  | Default site and page description when a page does not provide one.                                 | `Clear, focused documentation for your project.` |
+| `theme`        | Built-in visual theme. The current release provides `grain`.                                        | `grain`                                          |
+| `mode`         | Initial color preference: `system`, `light`, or `dark`.                                             | `system`                                         |
+| `colors`       | Optional `primary` and `secondary` CSS color overrides.                                             | `{}`                                             |
+| `navigation`   | Application-owned JSX placed by the active theme. Grain renders it at the right side of the header. | Omitted                                          |
+| `groups`       | Documentation and changelog groups in sidebar order.                                                | `[]`                                             |
+| `footer`       | Optional website and GitHub URLs for the sidebar footer.                                            | `{}`                                             |
+| `branding`     | Brand name and optional logo for the header.                                                        | Name falls back to `title`                       |
+| `siteUrl`      | Canonical public origin used for absolute generated URLs.                                           | Omitted                                          |
+| `integrations` | Optional browser integrations grouped into `analytics`, `support`, and `consent`.                   | `{ analytics: {}, support: {}, consent: {} }`    |
 
 The configuration is intentionally small. Content structure belongs in
 `groups`, while page-specific titles and descriptions belong in each MDX
-file's frontmatter.
+file's frontmatter. Read [Integration](/manage-website/integrations) for the
+available providers and their settings.
 
 ## Set the production URL
 

@@ -159,7 +159,7 @@ export default function HomeRoute() {
         </footer>
       </div>
 
-      <p className="landing-enter landing-enter--10 absolute bottom-6 text-center text-xs text-muted-foreground sm:bottom-8">
+      <p className="landing-enter landing-enter--10 absolute bottom-6 hidden text-center text-xs text-muted-foreground sm:block sm:bottom-8">
         Made for developers who like things clear.
       </p>
     </main>
