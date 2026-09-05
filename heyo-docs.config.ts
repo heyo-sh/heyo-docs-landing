@@ -135,11 +135,25 @@ export default heyoDocs({
       ],
     },
     {
-      group: "Changelog",
-      description: "Stay up to date with the latest changes and improvements.",
-      icon: "time",
+      group: "Changelog (Demo)",
+      description:
+        "A rich product-update timeline with releases, improvements, migrations, and fixes.",
+      icon: "changelog",
       type: "changelog",
       updates: ["changelog"],
+    },
+    {
+      group: "OpenAPI (Demo)",
+      icon: "code",
+      sections: [
+        {
+          pages: [
+            { page: "api-demo/overview", icon: "globe" },
+            { page: "api-demo/quickstart", icon: "lightbulb" },
+          ],
+        },
+        { schema: "./openapi-demo.json" },
+      ],
     },
   ],
   footer: {
